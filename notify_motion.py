@@ -153,7 +153,7 @@ if __name__ == "__main__":
 
     start_server_thread()
 
-    mycam = ONVIFCamera(server_ip, server_port, user, password)
+    mycam = ONVIFCamera(server_ip, server_port, user, password, wsdl_dir="./wsdl")
     
     notification_service = mycam.create_onvif_service(name='Notification')
 
