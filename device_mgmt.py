@@ -41,7 +41,7 @@ if __name__ == "__main__":
     user = sys.argv[3]
     password = sys.argv[4]
 
-    mycam = ONVIFCamera(server_ip, server_port, user, password)
+    mycam = ONVIFCamera(server_ip, server_port, user, password, wsdl_dir="./wsdl")
 
     device_service = mycam.create_devicemgmt_service()
 
