@@ -22,7 +22,7 @@ logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 server_thread = None
 httpd = None
 thread_lock = threading.Lock()
-http_port = 7777
+http_port = 7788
 
 
 # Function to handle termination signals
@@ -33,14 +33,6 @@ def signal_handler(signum, frame):
 
     logger.info(f"before exit")
     exit(0)
-    logger.info(f"after exit")
-
-    # global server_thread    
-    # if server_thread is not None:
-    #     stop_http_server()
-    #     server_thread.join()  # Wait for the server thread to finish
-    #     server_thread = None
-    # logger.info(f'Available threads after http server shutdown: {", ".join(thread.name for thread in threading.enumerate())}')
 
 # http server
 def start_server_thread():
@@ -138,14 +130,15 @@ def print_capabilities(capabilities, indent=0):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 5:
-        logger.error("Usage: python notify_motion.py <server_ip> <server_port> <user> <password>")
+    if len(sys.argv) != 6:
+        logger.error("Usage: python notify_motion.py <server_ip> <server_port> <user> <password> <local_ip>")
         sys.exit(1)
 
     server_ip = sys.argv[1]
     server_port = int(sys.argv[2])
     user = sys.argv[3]
     password = sys.argv[4]
+    local_ip = sys.argv[5]
 
     # Register signal handlers
     signal.signal(signal.SIGTERM, signal_handler)
@@ -173,7 +166,7 @@ if __name__ == "__main__":
     logger.info(f"address_type: {address_type}")
 
     # Create the consumer reference
-    consumer_reference = address_type(Address='http://192.168.11.125:7777/onvif_notifications')
+    consumer_reference = address_type(Address=f"http://{local_ip}:7788/onvif_notifications")
     logger.info(f"consumer_reference: {consumer_reference}")
 
     # # Get the FilterType
