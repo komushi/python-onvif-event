@@ -1,3 +1,5 @@
+from urllib.parse import urlparse
+
 import sys
 import signal
 import json
@@ -13,6 +15,7 @@ from onvif import ONVIFCamera
 from zeep import Client, xsd
 from zeep.transports import Transport
 from requests import Session
+import xml.etree.ElementTree as ET
 
 # Setup logging to stdout
 logger = logging.getLogger(__name__)
@@ -24,10 +27,18 @@ httpd = None
 thread_lock = threading.Lock()
 http_port = 7788
 
+subscription_references = []  # List to store SubscriptionReference.Address
 
 # Function to handle termination signals
 def signal_handler(signum, frame):
     logger.info(f"Signal {signum} received, shutting down http server.")
+
+    # for address in subscription_references:
+    #     try:
+    #         unsubscribe(address)
+    #         logger.info(f"Unsubscribed from {address}")
+    #     except Exception as e:
+    #         logger.error(f"Failed to unsubscribe from {address}: {str(e)}")
 
     stop_http_server()
 
@@ -67,30 +78,49 @@ def start_http_server():
 
     class NewHandler(http.server.SimpleHTTPRequestHandler):
         
-        
         def do_POST(self):
-
             try:
-
                 # if self.client_address[0] != '127.0.0.1':
                 #     self.send_error(403, "Forbidden: Only localhost allowed")
                 #     return
-
+                
                 if self.path == '/onvif_notifications':
-                    # Process the POST data
                     content_length = int(self.headers['Content-Length'])
                     post_data = self.rfile.read(content_length)
-                    # event = json.loads(post_data)
-                    event = post_data.decode('utf-8')
+                    
+                    # Parse the XML content
+                    root = ET.fromstring(post_data)
+                    
+                    # Extract the topic
+                    topic_element = root.find(".//{http://docs.oasis-open.org/wsn/b-2}Topic")
+                    if topic_element is not None:
+                        topic = topic_element.text
+                        if topic == "tns1:RuleEngine/CellMotionDetector/Motion":
 
+                            # Extract SubscriptionReference Address and get the host/IP
+                            address_element = root.find(".//{http://www.w3.org/2005/08/addressing}Address")
+                            address = address_element.text if address_element is not None else None
+                            
+                            if address and address in subscription_references:
+                                # Extract IsMotion as a boolean
+                                is_motion_element = root.find(".//{http://www.onvif.org/ver10/schema}SimpleItem[@Name='IsMotion']")
+                                is_motion_value = is_motion_element.get('Value').lower() == 'true' if is_motion_element is not None else None
+                                
+                                # Extract UtcTime
+                                utc_time_element = root.find(".//{http://www.onvif.org/ver10/schema}Message")
+                                utc_time = utc_time_element.get('UtcTime') if utc_time_element is not None else None
+                                
+                                # Log the extracted values
+                                logger.info(f"Motion detected: IsMotion={is_motion_value}, Address={address}, UtcTime={utc_time}")
+                            else:
+                                logger.info(f"Received notification from unsubscribed address: {address}")
+                    
 
-                    logger.info(f"/onvif_notifications: {event}")
-
-
+                    logger.info(f"Notification received: {post_data.decode('utf-8')}")
+                    
+                    
                     self.send_response(200)
-                    self.send_header('Content-type', 'text/html')
                     self.end_headers()
-                    self.wfile.write("Notification Received".encode('utf-8'))
             except BrokenPipeError:
                 logger.error("Client disconnected before the response could be sent.")
             except Exception as e:
@@ -117,17 +147,33 @@ def start_http_server():
     except Exception as e:
         logger.error(f"Error starting HTTP server: {e}")
 
+def unsubscribe(address):
+    # Create unsubscribe request using the stored SubscriptionReference.Address
+    try:
+
+        subscription_reference_type = client.get_element('{http://www.w3.org/2005/08/addressing}EndpointReference')
+        subscription_reference = subscription_reference_type(
+            Address='http://192.168.11.210:2020/event-0_2020',
+            ReferenceParameters=None,
+            Metadata=None
+        )
+        unsubscription_options = {
+            'SubscriptionReference': subscription_reference,
+        }
+
+        print(f"unsubscription_options: {unsubscription_options}")
+
+        subscription_service = mycam.create_onvif_service(name='Subscription')
+
+        subscription_service.Unsubscribe(unsubscription_options)
+        print(f"Unsubscribed from")
+    except Exception as e:
+        logger.error(f"Error while unsubscribing from {address}: {str(e)}")
+        traceback.print_exc()
+        raise
 
 def print_capabilities(capabilities, indent=0):
     logger.info(capabilities)
-
-    # for key, value in capabilities.items():
-    #     if isinstance(value, dict):
-    #         logger.info(f'{" " * indent}{key}:')
-    #         print_capabilities(value, indent + 2)
-    #     else:
-    #         logger.info(f'{" " * indent}{key}: {value}')
-
 
 if __name__ == "__main__":
     if len(sys.argv) != 6:
@@ -144,14 +190,11 @@ if __name__ == "__main__":
     signal.signal(signal.SIGTERM, signal_handler)
     signal.signal(signal.SIGINT, signal_handler)
 
-    start_server_thread()
-
     mycam = ONVIFCamera(server_ip, server_port, user, password, wsdl_dir="./wsdl")
     
     notification_service = mycam.create_onvif_service(name='Notification')
 
     service_url, wsdl_file, binding  = mycam.get_definition('notification')
-
     logger.info(f"service_url: {service_url}, wsdl_file: {wsdl_file}, binding: {binding}")
 
     # Create a session to handle authentication
@@ -163,51 +206,26 @@ if __name__ == "__main__":
 
     # Get the EndpointReferenceType
     address_type = client.get_element('{http://www.w3.org/2005/08/addressing}EndpointReference')
-    logger.info(f"address_type: {address_type}")
+    print(f"address_type {address_type}")
 
     # Create the consumer reference
     consumer_reference = address_type(Address=f"http://{local_ip}:7788/onvif_notifications")
-    logger.info(f"consumer_reference: {consumer_reference}")
-
-    # # Get the FilterType
-    # filter_type = client.get_type('{http://docs.oasis-open.org/wsn/b-2}FilterType')
-    # logger.info(f"filter_type: {filter_type}")
-
-    # # Get the TopicExpressionType
-    # topic_expression_type = client.get_type('{http://docs.oasis-open.org/wsn/b-2}TopicExpressionType')
-    # logger.info(f"topic_expression_type: {topic_expression_type}")
-
-    # # Create the topic_expression
-    # topic_expression = topic_expression_type('tns1:RuleEngine/CellMotionDetector/Motion', Dialect='http://www.onvif.org/ver10/tev/topicExpression/ConcreteSet')
-    # logger.info(f"topic_expression: {topic_expression}")
-
-    # # Create the topic_filter
-    # topic_filter = filter_type({
-    #         'TopicExpression': topic_expression,
-    # })
-    # logger.info(f"topic_filter: {topic_filter}")
-    
+    print(f"consumer_reference {consumer_reference}")
 
     subscription_options = {
         'ConsumerReference': consumer_reference,
-        # 'Filter': topic_filter,
-        'InitialTerminationTime': 'PT1H'
+        'InitialTerminationTime': 'PT100S'
     }
 
-    # subscription_options = {
-    #     'ConsumerReference': {
-    #         'Address': {
-    #             '_value_1': 'http://192.168.11.126:7777/onvif_notifications',
-    #             '_attr_1': None
-    #         },
-    #     },
-    #     'Filter': topic_filter,
-    #     'InitialTerminationTime': 'PT1H'
-    # }
+    subscription = notification_service.Subscribe(subscription_options)
 
     try:
-        subscription = notification_service.Subscribe(subscription_options)
-        print("Subscription successful:", subscription)
+        
+        logger.info(f"Subscription successful: {subscription}")
+
+        subscription_references.append(subscription['SubscriptionReference']['Address']['_value_1'])
+
+        start_server_thread()
         
         # Keep the main thread running
         while True:
