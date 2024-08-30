@@ -11,15 +11,11 @@ import traceback
 import http.server
 import socketserver
 
-import datetime
-
-# from onvif import ONVIFCamera
+from onvif import ONVIFCamera
 from zeep import Client, xsd
 from zeep.transports import Transport
 from requests import Session
 import xml.etree.ElementTree as ET
-
-from zeep.wsse.username import UsernameToken
 
 # Setup logging to stdout
 logger = logging.getLogger(__name__)
@@ -151,7 +147,30 @@ def start_http_server():
     except Exception as e:
         logger.error(f"Error starting HTTP server: {e}")
 
-# def unsubscribe(address):
+def unsubscribe(address):
+    # Create unsubscribe request using the stored SubscriptionReference.Address
+    try:
+
+        subscription_reference_type = client.get_element('{http://www.w3.org/2005/08/addressing}EndpointReference')
+        subscription_reference = subscription_reference_type(
+            Address='http://192.168.11.210:2020/event-0_2020',
+            ReferenceParameters=None,
+            Metadata=None
+        )
+        unsubscription_options = {
+            'SubscriptionReference': subscription_reference,
+        }
+
+        print(f"unsubscription_options: {unsubscription_options}")
+
+        subscription_service = mycam.create_onvif_service(name='Subscription')
+
+        subscription_service.Unsubscribe(unsubscription_options)
+        print(f"Unsubscribed from")
+    except Exception as e:
+        logger.error(f"Error while unsubscribing from {address}: {str(e)}")
+        traceback.print_exc()
+        raise
 
 def print_capabilities(capabilities, indent=0):
     logger.info(capabilities)
@@ -171,33 +190,19 @@ if __name__ == "__main__":
     signal.signal(signal.SIGTERM, signal_handler)
     signal.signal(signal.SIGINT, signal_handler)
 
-    # mycam = ONVIFCamera(server_ip, server_port, user, password, wsdl_dir="./wsdl")
+    mycam = ONVIFCamera(server_ip, server_port, user, password, wsdl_dir="./wsdl")
     
-    # notification_service = mycam.create_onvif_service(name='Notification')
+    notification_service = mycam.create_onvif_service(name='Notification')
 
-    # service_url, wsdl_file, binding  = mycam.get_definition('notification')
-    # logger.info(f"service_url: {service_url}, wsdl_file: {wsdl_file}, binding: {binding}")
-
-    service_url = '%s:%s/onvif/device_service' % \
-                    (server_ip if (server_ip.startswith('http://') or server_ip.startswith('https://'))
-                     else 'http://%s' % server_ip, server_port)
-    
-    wsdl_file = './wsdl/events.wsdl'
-
-    binding = '{http://www.onvif.org/ver10/events/wsdl}NotificationProducerBinding'
-    
+    service_url, wsdl_file, binding  = mycam.get_definition('notification')
     logger.info(f"service_url: {service_url}, wsdl_file: {wsdl_file}, binding: {binding}")
 
     # Create a session to handle authentication
     session = Session()
     session.auth = (user, password)
 
-    wsse = UsernameToken(username=user, password=password, use_digest=True)
-
     # Create a Zeep client using the local WSDL file
-    client = Client(wsdl_file, wsse=wsse, transport=Transport(session=session))
-
-    notification_service = client.create_service(binding, service_url)
+    client = Client(wsdl_file, transport=Transport(session=session))
 
     # Get the EndpointReferenceType
     address_type = client.get_element('{http://www.w3.org/2005/08/addressing}EndpointReference')
@@ -208,10 +213,11 @@ if __name__ == "__main__":
     print(f"consumer_reference {consumer_reference}")
 
     subscription_options = {
-        'ConsumerReference': consumer_reference
+        'ConsumerReference': consumer_reference,
+        'InitialTerminationTime': 'PT600S'
     }
 
-    subscription = notification_service.Subscribe(ConsumerReference=consumer_reference, InitialTerminationTime='PT300S')
+    subscription = notification_service.Subscribe(subscription_options)
 
     try:
         
