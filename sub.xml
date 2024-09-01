@@ -1,0 +1,20 @@
+<ns0:Envelope xmlns:ns0="http://schemas.xmlsoap.org/soap/envelope/">
+  <ns0:Header>
+    <wsse:Security xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd">
+      <wsse:UsernameToken>
+        <wsse:Username>komushi</wsse:Username>
+        <wsse:Password Type="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordDigest">wi/OhDViNDEvN9wntB+V1Ntm87g=</wsse:Password>
+        <wsse:Nonce EncodingType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-soap-message-security-1.0#Base64Binary">xn4qBf4Pa5zxwn2nLkjWmg==</wsse:Nonce>
+        <wsu:Created xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd">2024-08-31T15:08:17+00:00</wsu:Created>
+      </wsse:UsernameToken>
+    </wsse:Security>
+  </ns0:Header>
+  <ns0:Body>
+    <ns1:Subscribe xmlns:ns1="http://docs.oasis-open.org/wsn/b-2">
+      <ns1:ConsumerReference>
+        <ns2:Address xmlns:ns2="http://www.w3.org/2005/08/addressing">http://192.168.11.132:7788/onvif_notifications</ns2:Address>
+      </ns1:ConsumerReference>
+      <ns1:InitialTerminationTime>PT300S</ns1:InitialTerminationTime>
+    </ns1:Subscribe>
+  </ns0:Body>
+</ns0:Envelope>

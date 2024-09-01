@@ -173,12 +173,12 @@ if __name__ == "__main__":
 
     # mycam = ONVIFCamera(server_ip, server_port, user, password, wsdl_dir="./wsdl")
     
-    # notification_service = mycam.create_onvif_service(name='Notification')
+    # notification_service1 = mycam.create_onvif_service(name='Notification')
 
     # service_url, wsdl_file, binding  = mycam.get_definition('notification')
     # logger.info(f"service_url: {service_url}, wsdl_file: {wsdl_file}, binding: {binding}")
 
-    service_url = '%s:%s/onvif/device_service' % \
+    service_url = '%s:%s/onvif/Events' % \
                     (server_ip if (server_ip.startswith('http://') or server_ip.startswith('https://'))
                      else 'http://%s' % server_ip, server_port)
     
@@ -201,17 +201,17 @@ if __name__ == "__main__":
 
     # Get the EndpointReferenceType
     address_type = client.get_element('{http://www.w3.org/2005/08/addressing}EndpointReference')
-    print(f"address_type {address_type}")
+    # print(f"address_type {address_type}")
 
     # Create the consumer reference
     consumer_reference = address_type(Address=f"http://{local_ip}:7788/onvif_notifications")
-    print(f"consumer_reference {consumer_reference}")
+    # print(f"consumer_reference {consumer_reference}")
 
     subscription_options = {
         'ConsumerReference': consumer_reference
     }
 
-    subscription = notification_service.Subscribe(ConsumerReference=consumer_reference, InitialTerminationTime='PT300S')
+    subscription = notification_service.Subscribe(ConsumerReference=consumer_reference, InitialTerminationTime='PT1H')
 
     try:
         
