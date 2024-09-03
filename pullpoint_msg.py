@@ -1,16 +1,29 @@
 import sys
-from onvif import ONVIFCamera
+import signal
+
 import datetime
 import logging
 from zeep.helpers import serialize_object
 from zeep import Client, xsd
 from zeep.transports import Transport
 from requests import Session
-import time
+
+from zeep.wsse.username import UsernameToken
 
 # Setup logging to stdout
 logger = logging.getLogger(__name__)
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+
+# Function to handle termination signals
+def signal_handler(signum, frame):
+    logger.info(f"Signal {signum} received, unsubscribing...")
+
+    response = subscription_service.Unsubscribe(_soapheaders=[addressing_header])
+    
+    logger.info(f"unsub response {response}")
+
+    logger.info(f"before exit")
+    exit(0)
 
 if __name__ == '__main__':
     if len(sys.argv) != 5:
@@ -22,65 +35,51 @@ if __name__ == '__main__':
     user = sys.argv[3]
     password = sys.argv[4]
 
+    # Register signal handlers
+    signal.signal(signal.SIGTERM, signal_handler)
+    signal.signal(signal.SIGINT, signal_handler)
 
-    mycam = ONVIFCamera(server_ip, server_port, user, password) #, no_cache=True)
-    events_service = mycam.create_events_service()
-    print(events_service.GetEventProperties())
+    service_url = '%s:%s/onvif/Events' % \
+                    (server_ip if (server_ip.startswith('http://') or server_ip.startswith('https://'))
+                     else 'http://%s' % server_ip, server_port)
+    
+    wsdl_file = './wsdl/events.wsdl'
 
-    # Define the topic we're interested in
-    topic_of_interest = "RuleEngine/CellMotionDetector/Motion"
-
-    # Create the message filter
-    # message_filter = mycam.create_type('Filter')
-    # topic_expression = mycam.create_type('TopicExpression')
-    # topic_expression._value_1 = topic_of_interest
-    # topic_expression.Dialect = 'http://www.onvif.org/ver10/tev/topicExpression/ConcreteSet'
-    # message_filter.TopicExpression = topic_expression
-
-    notification_service = mycam.create_onvif_service(name='Notification')
-
-    service_url, wsdl_file, binding  = mycam.get_definition('notification')
-
-    logger.info(f"service_url: {service_url}, wsdl_file: {wsdl_file}, binding: {binding}")
+    pullpoint_subscription_binding = '{http://www.onvif.org/ver10/events/wsdl}PullPointSubscriptionBinding'
+    event_binding = '{http://www.onvif.org/ver10/events/wsdl}EventBinding'
+    subscription_binding = '{http://www.onvif.org/ver10/events/wsdl}SubscriptionManagerBinding'
+    
+    logger.info(f"service_url: {service_url}, wsdl_file: {wsdl_file}, event_binding: {event_binding}, pullpoint_subscription_binding: {pullpoint_subscription_binding}")
 
     # Create a session to handle authentication
     session = Session()
     session.auth = (user, password)
 
+    wsse = UsernameToken(username=user, password=password, use_digest=True)
+
     # Create a Zeep client using the local WSDL file
-    client = Client(wsdl_file, transport=Transport(session=session))
+    client = Client(wsdl_file, wsse, transport=Transport(session=session))
 
-    # Get the FilterType
-    filter_type = client.get_type('{http://docs.oasis-open.org/wsn/b-2}FilterType')
-    logger.info(f"filter_type: {filter_type}")
+    event_service = client.create_service(event_binding, service_url)
 
-    # Get the TopicExpressionType
-    topic_expression_type = client.get_type('{http://docs.oasis-open.org/wsn/b-2}TopicExpressionType')
-    logger.info(f"topic_expression_type: {topic_expression_type}")
+    subscription = event_service.CreatePullPointSubscription()
+    logger.info(f"subscription: {subscription}")
 
-    # Create the topic_expression
-    # topic_expression = topic_expression_type('tns1:RuleEngine/CellMotionDetector/Motion', Dialect='http://www.onvif.org/ver10/tev/topicExpression/ConcreteSet')
-    topic_expression = topic_expression_type(
-        _value_1='tns1:RuleEngine/CellMotionDetector/Motion',
-        Dialect='http://www.onvif.org/ver10/tev/topicExpression/ConcreteSet'
+    pullpoint_service = client.create_service(pullpoint_subscription_binding, subscription.SubscriptionReference.Address._value_1)
+
+    subscription_service = client.create_service(subscription_binding, service_url)
+
+    addressing_header_type = xsd.ComplexType(
+        xsd.Sequence([
+            xsd.Element('{http://www.w3.org/2005/08/addressing}To', xsd.String())
+        ])
     )
-    logger.info(f"topic_expression: {topic_expression}")
 
-    # Create the topic_filter
-    message_filter = filter_type({
-        'TopicExpression': topic_expression,
-    })
-    logger.info(f"message_filter: {message_filter}")
+    addressing_header = addressing_header_type(To=subscription.SubscriptionReference.Address._value_1)
 
-    pullpoint = mycam.create_pullpoint_service()
-    
     while True:
         try:
-            pullmess = pullpoint.PullMessages({
-                "Timeout": datetime.timedelta(seconds=5), 
-                "MessageLimit": 10,
-                # 'Filter': message_filter
-            })
+            pullmess = pullpoint_service.PullMessages(Timeout=datetime.timedelta(seconds=5),MessageLimit=10)
             print(pullmess.CurrentTime)
             print(pullmess.TerminationTime)
             for msg in pullmess.NotificationMessage:

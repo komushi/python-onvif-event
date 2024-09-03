@@ -69,15 +69,13 @@ if __name__ == "__main__":
 
     subscription_manager_proxy = client.create_service(binding, service_url)
 
-    # subscription_service = mycam.create_onvif_service(name='Subscription')
-
     header_type = xsd.ComplexType(
         xsd.Sequence([
             xsd.Element('{http://www.w3.org/2005/08/addressing}To', xsd.String())
         ])
     )
 
-    addressing_header = header_type(To='http://192.168.11.90:80/onvif/Subscription?Index=0')
+    addressing_header = header_type(To='http://192.168.11.42/onvif/Subscription?Idx=22')
 
     try:
         response = subscription_manager_proxy.Unsubscribe(_soapheaders=[addressing_header])
