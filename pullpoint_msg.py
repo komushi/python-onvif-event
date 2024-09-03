@@ -6,13 +6,15 @@ import logging
 from zeep.helpers import serialize_object
 from zeep import Client, xsd
 from zeep.transports import Transport
-from requests import Session
-
 from zeep.wsse.username import UsernameToken
+
+import xml.etree.ElementTree as ET
+
+from requests import Session
 
 # Setup logging to stdout
 logger = logging.getLogger(__name__)
-logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+logging.basicConfig(stream=sys.stdout, level=logging.WARNING)
 
 # Function to handle termination signals
 def signal_handler(signum, frame):
@@ -80,11 +82,21 @@ if __name__ == '__main__':
     while True:
         try:
             pullmess = pullpoint_service.PullMessages(Timeout=datetime.timedelta(seconds=5),MessageLimit=10)
-            print(pullmess.CurrentTime)
-            print(pullmess.TerminationTime)
             for msg in pullmess.NotificationMessage:
                 message = serialize_object(msg)
-                print(f"Motion detected: {message}")
+                message_element = message['Message']['_value_1']
+
+                utc_time = None
+                is_motion = None
+                for simple_item in message_element.findall(".//ns0:SimpleItem", namespaces={'ns0': 'http://www.onvif.org/ver10/schema'}):
+                    if simple_item.attrib.get('Name') == "IsMotion":
+                        is_motion = simple_item.attrib.get('Value')
+                        utc_time = message_element.attrib.get('UtcTime')
+                        break
+
+                if utc_time is not None and is_motion is not None:
+                    print(f"Motion detected: utc_time: {utc_time} is_motion: {is_motion}")
+
         except Exception as e:
             print(e)
         finally:

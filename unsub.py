@@ -75,7 +75,7 @@ if __name__ == "__main__":
         ])
     )
 
-    addressing_header = header_type(To='http://192.168.11.42/onvif/Subscription?Idx=22')
+    addressing_header = header_type(To='http://192.168.11.42/onvif/Subscription?Idx=23')
 
     try:
         response = subscription_manager_proxy.Unsubscribe(_soapheaders=[addressing_header])

@@ -37,12 +37,9 @@ subscription_references = []  # List to store SubscriptionReference.Address
 def signal_handler(signum, frame):
     logger.info(f"Signal {signum} received, shutting down http server.")
 
-    # for address in subscription_references:
-    #     try:
-    #         unsubscribe(address)
-    #         logger.info(f"Unsubscribed from {address}")
-    #     except Exception as e:
-    #         logger.error(f"Failed to unsubscribe from {address}: {str(e)}")
+    response = subscription_service.Unsubscribe(_soapheaders=[addressing_header])
+    
+    logger.info(f"unsub response {response}")
 
     stop_http_server()
 
@@ -151,8 +148,6 @@ def start_http_server():
     except Exception as e:
         logger.error(f"Error starting HTTP server: {e}")
 
-# def unsubscribe(address):
-
 def print_capabilities(capabilities, indent=0):
     logger.info(capabilities)
 
@@ -184,9 +179,10 @@ if __name__ == "__main__":
     
     wsdl_file = './wsdl/events.wsdl'
 
-    binding = '{http://www.onvif.org/ver10/events/wsdl}NotificationProducerBinding'
+    notification_binding = '{http://www.onvif.org/ver10/events/wsdl}NotificationProducerBinding'
+    subscription_binding = '{http://www.onvif.org/ver10/events/wsdl}SubscriptionManagerBinding'
     
-    logger.info(f"service_url: {service_url}, wsdl_file: {wsdl_file}, binding: {binding}")
+    logger.info(f"service_url: {service_url}, wsdl_file: {wsdl_file}, subscription_binding: {subscription_binding}, notification_binding: {notification_binding}")
 
     # Create a session to handle authentication
     session = Session()
@@ -197,7 +193,8 @@ if __name__ == "__main__":
     # Create a Zeep client using the local WSDL file
     client = Client(wsdl_file, wsse=wsse, transport=Transport(session=session))
 
-    notification_service = client.create_service(binding, service_url)
+    notification_service = client.create_service(notification_binding, service_url)
+    subscription_service = client.create_service(subscription_binding, service_url)
 
     # Get the EndpointReferenceType
     address_type = client.get_element('{http://www.w3.org/2005/08/addressing}EndpointReference')
@@ -213,11 +210,17 @@ if __name__ == "__main__":
 
     subscription = notification_service.Subscribe(ConsumerReference=consumer_reference, InitialTerminationTime='PT1H')
 
+    addressing_header_type = xsd.ComplexType(
+        xsd.Sequence([
+            xsd.Element('{http://www.w3.org/2005/08/addressing}To', xsd.String())
+        ])
+    )
+
+    addressing_header = addressing_header_type(To=subscription.SubscriptionReference.Address._value_1)
+
     try:
         
         logger.info(f"Subscription successful: {subscription}")
-
-        subscription_references.append(subscription['SubscriptionReference']['Address']['_value_1'])
 
         start_server_thread()
         
