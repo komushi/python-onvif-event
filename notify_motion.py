@@ -23,7 +23,7 @@ from zeep.wsse.username import UsernameToken
 
 # Setup logging to stdout
 logger = logging.getLogger(__name__)
-logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
 # Initialize the http server
 server_thread = None
