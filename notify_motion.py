@@ -23,7 +23,7 @@ from zeep.wsse.username import UsernameToken
 
 # Setup logging to stdout
 logger = logging.getLogger(__name__)
-logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
 # Initialize the http server
 server_thread = None
@@ -204,10 +204,6 @@ if __name__ == "__main__":
     consumer_reference = address_type(Address=f"http://{local_ip}:7788/onvif_notifications")
     # print(f"consumer_reference {consumer_reference}")
 
-    subscription_options = {
-        'ConsumerReference': consumer_reference
-    }
-
     subscription = notification_service.Subscribe(ConsumerReference=consumer_reference, InitialTerminationTime='PT1H')
 
     addressing_header_type = xsd.ComplexType(
@@ -217,6 +213,8 @@ if __name__ == "__main__":
     )
 
     addressing_header = addressing_header_type(To=subscription.SubscriptionReference.Address._value_1)
+
+    subscription_references.append(subscription.SubscriptionReference.Address._value_1)
 
     try:
         
