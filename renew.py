@@ -75,10 +75,10 @@ if __name__ == "__main__":
         ])
     )
 
-    addressing_header = header_type(To='http://192.168.11.42/onvif/Subscription?Idx=6')
+    addressing_header = header_type(To='http://192.168.11.42/onvif/Subscription?Idx=1')
 
     try:
-        response = subscription_manager_proxy.Unsubscribe(_soapheaders=[addressing_header])
+        response = subscription_manager_proxy.Renew(_soapheaders=[addressing_header], TerminationTime='PT1H')
         # response = subscription_service.Unsubscribe(_soapheaders=[addressing_header])
         
         logger.info(f"response {response}")

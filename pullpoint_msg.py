@@ -14,7 +14,11 @@ from requests import Session
 
 # Setup logging to stdout
 logger = logging.getLogger(__name__)
-logging.basicConfig(stream=sys.stdout, level=logging.WARNING)
+logging.basicConfig(
+    format='%(asctime)s.%(msecs)03d %(levelname)s %(message)s',
+    datefmt='%Y-%m-%d,%H:%M:%S',
+    level=logging.INFO)
+
 
 # Function to handle termination signals
 def signal_handler(signum, frame):
@@ -81,7 +85,7 @@ if __name__ == '__main__':
 
     while True:
         try:
-            pullmess = pullpoint_service.PullMessages(Timeout=datetime.timedelta(seconds=5),MessageLimit=10)
+            pullmess = pullpoint_service.PullMessages(Timeout='PT1M', MessageLimit=10)
             for msg in pullmess.NotificationMessage:
                 message = serialize_object(msg)
                 message_element = message['Message']['_value_1']
@@ -95,9 +99,9 @@ if __name__ == '__main__':
                         break
 
                 if utc_time is not None and is_motion is not None:
-                    print(f"Motion detected: utc_time: {utc_time} is_motion: {is_motion}")
+                    logger.info(f"Motion detected: utc_time: {utc_time} is_motion: {is_motion}")
 
         except Exception as e:
-            print(e)
-        finally:
-            pass
+            logger.info(e)
+            exit(0)
+            
