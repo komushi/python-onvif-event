@@ -68,7 +68,8 @@ if __name__ == '__main__':
 
     event_service = client.create_service(event_binding, service_url)
 
-    subscription = event_service.CreatePullPointSubscription()
+    subscription = event_service.CreatePullPointSubscription(InitialTerminationTime='PT1M')
+    # subscription = event_service.CreatePullPointSubscription()
     logger.info(f"subscription: {subscription}")
 
     pullpoint_service = client.create_service(pullpoint_subscription_binding, subscription.SubscriptionReference.Address._value_1)
@@ -86,11 +87,13 @@ if __name__ == '__main__':
     while True:
         try:
             pullmess = pullpoint_service.PullMessages(Timeout='PT1M', MessageLimit=10)
+            # logger.info(f"pullmess: {pullmess}")
             for msg in pullmess.NotificationMessage:
-                logger.info(f"msg: {msg}")
+                # logger.info(f"msg: {msg}")
                 message = serialize_object(msg)
 
                 message_element = message['Message']['_value_1']
+                # logger.info(f"msg-element: {ET.tostring(message_element, encoding='utf8')}")
 
                 utc_time = None
                 is_motion = None
