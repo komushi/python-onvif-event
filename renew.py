@@ -75,7 +75,7 @@ if __name__ == "__main__":
         ])
     )
 
-    addressing_header = header_type(To='http://192.168.11.42/onvif/Subscription?Idx=1')
+    addressing_header = header_type(To='http://192.168.11.210:1024/event-1024_1024')
 
     try:
         response = subscription_manager_proxy.Renew(_soapheaders=[addressing_header], TerminationTime='PT1H')

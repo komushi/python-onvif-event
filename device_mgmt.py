@@ -33,7 +33,7 @@ def print_capabilities(capabilities, indent=0):
 if __name__ == "__main__":
 
     if len(sys.argv) != 5:
-        logger.error("Usage: python reboot_cam.py <server_ip> <server_port> <user> <password>")
+        logger.error("Usage: python device_mgmt.py <server_ip> <server_port> <user> <password>")
         sys.exit(1)
 
     server_ip = sys.argv[1]
@@ -49,13 +49,13 @@ if __name__ == "__main__":
 
     logger.info(f"service_url: {service_url}, wsdl_file: {wsdl_file}, binding: {binding}")
 
-    capabilities = device_service.GetCapabilities({'Category': 'All'})
+    # capabilities = device_service.GetCapabilities({'Category': 'All'})
 
-    print_capabilities(capabilities)
+    # print_capabilities(capabilities)
 
-    capabilities = device_service.GetServiceCapabilities()
+    # capabilities = device_service.GetServiceCapabilities()
 
-    print_capabilities(capabilities)
+    # print_capabilities(capabilities)
 
     events_service = mycam.create_events_service()
     
@@ -63,26 +63,26 @@ if __name__ == "__main__":
     
     print_capabilities(capabilities)
 
-    event_properties = events_service.GetEventProperties()
+    # event_properties = events_service.GetEventProperties()
 
-    logger.info(event_properties)
+    # logger.info(event_properties)
 
-    res = events_service.CreatePullPointSubscription()
-    logger.info(res)
+    # res = events_service.CreatePullPointSubscription()
+    # logger.info(res)
 
-    # Create a session to handle authentication
-    session = Session()
-    session.auth = (user, password)
+    # # Create a session to handle authentication
+    # session = Session()
+    # session.auth = (user, password)
 
-    # Create a Zeep client using the local WSDL file
-    client = Client(wsdl_file, transport=Transport(session=session))
+    # # Create a Zeep client using the local WSDL file
+    # client = Client(wsdl_file, transport=Transport(session=session))
 
-    # Get the FilterType element
-    reboot = client.get_element('{http://www.onvif.org/ver10/device/wsdl}SystemReboot')
-    logger.info(f"reboot: {reboot}")
+    # # Get the FilterType element
+    # reboot = client.get_element('{http://www.onvif.org/ver10/device/wsdl}SystemReboot')
+    # logger.info(f"reboot: {reboot}")
 
-    try:
-        reboot_response = device_service.SystemReboot()
-        print(f"Reboot Response: {reboot_response}")
-    except Exception as e:
-        print(f"An error occurred during SystemReboot: {e}")
+    # try:
+    #     reboot_response = device_service.SystemReboot()
+    #     print(f"Reboot Response: {reboot_response}")
+    # except Exception as e:
+    #     print(f"An error occurred during SystemReboot: {e}")

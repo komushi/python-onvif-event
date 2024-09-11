@@ -87,7 +87,9 @@ if __name__ == '__main__':
         try:
             pullmess = pullpoint_service.PullMessages(Timeout='PT1M', MessageLimit=10)
             for msg in pullmess.NotificationMessage:
+                logger.info(f"msg: {msg}")
                 message = serialize_object(msg)
+
                 message_element = message['Message']['_value_1']
 
                 utc_time = None

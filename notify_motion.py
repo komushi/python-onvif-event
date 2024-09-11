@@ -94,6 +94,8 @@ def start_http_server():
                     
                     # Parse the XML content
                     root = ET.fromstring(post_data)
+
+                    logger.info(f"msg: {ET.tostring(root, encoding='utf8')}")
                     
                     # Extract the topic
                     topic_element = root.find(".//{http://docs.oasis-open.org/wsn/b-2}Topic")
