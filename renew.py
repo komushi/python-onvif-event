@@ -75,10 +75,10 @@ if __name__ == "__main__":
         ])
     )
 
-    addressing_header = header_type(To='http://192.168.11.210:1024/event-1024_1024')
+    addressing_header = header_type(To='http://192.168.11.93:80/Subscription?Idx=210235C5RD3234000995_1')
 
     try:
-        response = subscription_manager_proxy.Renew(_soapheaders=[addressing_header], TerminationTime='PT1H')
+        response = subscription_manager_proxy.Renew(_soapheaders=[addressing_header], TerminationTime='PT3M')
         # response = subscription_service.Unsubscribe(_soapheaders=[addressing_header])
         
         logger.info(f"response {response}")

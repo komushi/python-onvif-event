@@ -68,7 +68,7 @@ if __name__ == '__main__':
 
     event_service = client.create_service(event_binding, service_url)
 
-    subscription = event_service.CreatePullPointSubscription(InitialTerminationTime='PT1M')
+    subscription = event_service.CreatePullPointSubscription(InitialTerminationTime='PT24H')
     # subscription = event_service.CreatePullPointSubscription()
     logger.info(f"subscription: {subscription}")
 

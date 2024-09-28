@@ -75,7 +75,8 @@ if __name__ == "__main__":
         ])
     )
 
-    addressing_header = header_type(To='http://192.168.11.210:1024/event-1024_1024')
+    addressing_header = header_type(To='http://192.168.11.93:80/Subscription?Idx=210235C5RD3234000995_14')
+    logger.info(f"onvif.unsubscribe addressing_header: {addressing_header}")
 
     try:
         response = subscription_manager_proxy.Unsubscribe(_soapheaders=[addressing_header])

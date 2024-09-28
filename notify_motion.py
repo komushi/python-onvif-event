@@ -95,7 +95,7 @@ def start_http_server():
                     # Parse the XML content
                     root = ET.fromstring(post_data)
 
-                    logger.info(f"msg: {ET.tostring(root, encoding='utf8')}")
+                    # logger.info(f"msg: {ET.tostring(root, encoding='utf8')}")
                     
                     # Extract the topic
                     topic_element = root.find(".//{http://docs.oasis-open.org/wsn/b-2}Topic")
@@ -214,7 +214,7 @@ if __name__ == "__main__":
     consumer_reference = address_type(Address=f"http://{local_ip}:7788/onvif_notifications")
     logger.info(f"onvif.subscribe consumer_reference {consumer_reference}")
 
-    subscription = notification_service.Subscribe(ConsumerReference=consumer_reference, InitialTerminationTime='PT1H')
+    subscription = notification_service.Subscribe(ConsumerReference=consumer_reference, InitialTerminationTime='PT3M')
     logger.info(f"onvif.subscribe subscription {subscription}")
 
     addressing_header_type = xsd.ComplexType(
