@@ -32,7 +32,6 @@ logging.basicConfig(
 server_thread = None
 httpd = None
 thread_lock = threading.Lock()
-http_port = 7788
 
 subscription_references = []  # List to store SubscriptionReference.Address
 
@@ -50,12 +49,12 @@ def signal_handler(signum, frame):
     exit(0)
 
 # http server
-def start_server_thread():
+def start_server_thread(local_port):
     global server_thread
     with thread_lock:
         if server_thread is None or not server_thread.is_alive():
             stop_http_server()
-            server_thread = threading.Thread(target=start_http_server, name="Thread-HttpServer" ,daemon=True)
+            server_thread = threading.Thread(target=start_http_server, name="Thread-HttpServer", args=(local_port,), daemon=True)
             server_thread.start()
             logger.info("Server thread started")
         else:
@@ -73,7 +72,7 @@ def stop_http_server():
         logger.info("HTTP server shut down3")
 
 
-def start_http_server():
+def start_http_server(local_port):
 
     global httpd
 
@@ -81,6 +80,9 @@ def start_http_server():
         allow_reuse_address = True
 
     class NewHandler(http.server.SimpleHTTPRequestHandler):
+        def log_message(self, format, *args):
+            # Override this method to suppress logging
+            return
         
         def do_POST(self):
             try:
@@ -116,8 +118,9 @@ def start_http_server():
                                 utc_time_element = root.find(".//{http://www.onvif.org/ver10/schema}Message")
                                 utc_time = utc_time_element.get('UtcTime') if utc_time_element is not None else None
                                 
-                                # Log the extracted values
-                                logger.info(f"Motion detected: IsMotion={is_motion_value}, Address={address}, UtcTime={utc_time}")
+                                if is_motion_value == True:
+                                    # Log the extracted values
+                                    logger.info(f"Motion detected: IsMotion={is_motion_value}, Address={address}, UtcTime={utc_time}")
                             else:
                                 logger.info(f"Received notification from unsubscribed address: {address}")
                     
@@ -143,7 +146,7 @@ def start_http_server():
 
     try:
         # Define the server address and port
-        server_address = ('', http_port)
+        server_address = ('', int(local_port))
 
         httpd = ReusableTCPServer(server_address, NewHandler)
         
@@ -157,8 +160,8 @@ def print_capabilities(capabilities, indent=0):
     logger.info(capabilities)
 
 if __name__ == "__main__":
-    if len(sys.argv) != 6:
-        logger.error("Usage: python notify_motion.py <server_ip> <server_port> <user> <password> <local_ip>")
+    if len(sys.argv) != 7:
+        logger.error("Usage: python notify_motion.py <server_ip> <server_port> <user> <password> <local_ip> <local_port>")
         sys.exit(1)
 
     server_ip = sys.argv[1]
@@ -166,6 +169,7 @@ if __name__ == "__main__":
     user = sys.argv[3]
     password = sys.argv[4]
     local_ip = sys.argv[5]
+    local_port = sys.argv[6]
 
     # Register signal handlers
     signal.signal(signal.SIGTERM, signal_handler)
@@ -211,7 +215,7 @@ if __name__ == "__main__":
     logger.info(f"onvif.subscribe address_type {address_type}")
 
     # Create the consumer reference
-    consumer_reference = address_type(Address=f"http://{local_ip}:7788/onvif_notifications")
+    consumer_reference = address_type(Address=f"http://{local_ip}:{local_port}/onvif_notifications")
     logger.info(f"onvif.subscribe consumer_reference {consumer_reference}")
 
     subscription = notification_service.Subscribe(ConsumerReference=consumer_reference, InitialTerminationTime='PT3M')
@@ -232,7 +236,7 @@ if __name__ == "__main__":
         
         logger.info(f"Subscription successful: {subscription}")
 
-        start_server_thread()
+        start_server_thread(local_port)
         
         # Keep the main thread running
         while True:
