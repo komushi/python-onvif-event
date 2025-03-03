@@ -91,6 +91,9 @@ def start_http_server(local_port):
                 #     return
                 
                 if self.path == '/onvif_notifications':
+                    # client_ip = self.client_address[0]
+                    # logger.info(f"Received a POST request from {self.client_address}")
+
                     content_length = int(self.headers['Content-Length'])
                     post_data = self.rfile.read(content_length)
                     
@@ -107,7 +110,7 @@ def start_http_server(local_port):
 
                             # Extract SubscriptionReference Address and get the host/IP
                             address_element = root.find(".//{http://www.w3.org/2005/08/addressing}Address")
-                            address = address_element.text if address_element is not None else None
+                            address = address_element.text if address_element is not None else self.client_address[0]
                             
                             if address and address in subscription_references:
                                 # Extract IsMotion as a boolean
