@@ -3,20 +3,14 @@
 ONVIF Device Discovery Tool
 
 This script implements ONVIF device discovery similar to node-onvif's startProbe() functionality.
-It uses WS-Discovery protocol and direct network scanning to find ONVIF-compliant devices.
+It uses WS-Discovery protocol to find ONVIF-compliant devices on the network.
 
 Usage:
-  python onvif_discovery.py [--timeout SECONDS] [--json] [--no-scan] [--subnet SUBNET] [--ports PORTS]
+  python onvif_discovery.py [--timeout SECONDS] [--json]
 
 Options:
   --timeout SECONDS  Set discovery timeout (default: 15 seconds)
   --json            Output results in JSON format
-  --no-scan         Disable network scanning (use only WS-Discovery)
-  --subnet SUBNET   Subnet to scan (default: auto-detect)
-  --ports PORTS     Comma-separated list of ports to check (default: 80,8000,8080,554)
-  --user USER       Username for authentication (default: admin)
-  --password PASS   Password for authentication (default: admin)
-  --wsdl DIR        Path to WSDL directory (default: auto-detect)
 """
 
 import sys
@@ -32,19 +26,15 @@ from urllib.parse import urlparse
 import traceback
 import ipaddress
 import concurrent.futures
-import os
-import inspect
-import netifaces
 
 try:
     from onvif import ONVIFCamera
-    import onvif
     from zeep import Client
     from zeep.transports import Transport
     from requests import Session
 except ImportError:
     print("Error: Required packages are not installed.")
-    print("Please install them using: pip install onvif zeep netifaces")
+    print("Please install them using: pip install onvif zeep")
     sys.exit(1)
 
 # Setup logging
@@ -58,87 +48,6 @@ logging.basicConfig(
 # Suppress excessive logging from requests
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 logging.getLogger("zeep").setLevel(logging.WARNING)
-
-def get_wsdl_dir():
-    """
-    Find the WSDL directory from the onvif package
-    """
-    # Get the directory of the onvif package
-    onvif_dir = os.path.dirname(inspect.getfile(onvif))
-    
-    # Check for wsdl directory in common locations
-    possible_paths = [
-        os.path.join(onvif_dir, 'wsdl'),
-        os.path.join(onvif_dir, 'schema', 'wsdl'),
-        os.path.join(os.path.dirname(onvif_dir), 'wsdl'),
-        os.path.join(os.path.dirname(onvif_dir), 'schema', 'wsdl'),
-        './wsdl'  # Local wsdl directory
-    ]
-    
-    for path in possible_paths:
-        if os.path.exists(path):
-            logger.debug(f"Found WSDL directory at: {path}")
-            return path
-    
-    # If we can't find it, try to get it from the ONVIFCamera class
-    try:
-        # Create a dummy camera to get the wsdl_dir
-        dummy_cam = ONVIFCamera('0.0.0.0', 80, 'dummy', 'dummy', no_cache=True)
-        if hasattr(dummy_cam, 'wsdl_dir') and dummy_cam.wsdl_dir:
-            logger.debug(f"Found WSDL directory from ONVIFCamera: {dummy_cam.wsdl_dir}")
-            return dummy_cam.wsdl_dir
-    except:
-        pass
-    
-    logger.warning("Could not find WSDL directory. Connection may fail.")
-    return None
-
-def get_local_subnets():
-    """Get local subnets from network interfaces"""
-    subnets = []
-    try:
-        # Get all network interfaces
-        interfaces = netifaces.interfaces()
-        for interface in interfaces:
-            # Skip loopback interface
-            if interface.startswith('lo'):
-                continue
-                
-            # Get addresses for this interface
-            addresses = netifaces.ifaddresses(interface)
-            
-            # Check for IPv4 addresses
-            if netifaces.AF_INET in addresses:
-                for address in addresses[netifaces.AF_INET]:
-                    if 'addr' in address and 'netmask' in address:
-                        ip = address['addr']
-                        netmask = address['netmask']
-                        
-                        # Skip loopback addresses
-                        if ip.startswith('127.'):
-                            continue
-                            
-                        # Calculate network address and CIDR
-                        try:
-                            # Convert netmask to CIDR notation
-                            netmask_bits = sum([bin(int(x)).count('1') for x in netmask.split('.')])
-                            subnet = f"{ip}/{netmask_bits}"
-                            
-                            # Create a proper network address
-                            network = ipaddress.IPv4Network(f"{ip}/{netmask}", strict=False)
-                            subnet = str(network)
-                            
-                            subnets.append(subnet)
-                        except Exception as e:
-                            logger.debug(f"Error calculating subnet for {ip}/{netmask}: {e}")
-    except Exception as e:
-        logger.warning(f"Error getting local subnets: {e}")
-    
-    # If no subnets found, use a default
-    if not subnets:
-        subnets = ['192.168.1.0/24']
-    
-    return subnets
 
 class OnvifDiscovery:
     """
@@ -239,7 +148,7 @@ class OnvifDiscovery:
             
         except Exception as e:
             logger.error(f"Error parsing probe response: {e}")
-            logger.debug(traceback.format_exc())
+            logger.error(traceback.format_exc())
             return None
 
     def _discovery_thread_func(self, timeout=15):
@@ -290,7 +199,7 @@ class OnvifDiscovery:
                 pass
             except Exception as e:
                 logger.error(f"Error in discovery thread: {e}")
-                logger.debug(traceback.format_exc())
+                logger.error(traceback.format_exc())
         
         # Close the socket
         sock.close()
@@ -355,14 +264,6 @@ def check_onvif_device_with_zeep(ip, port, username='admin', password='admin', w
     Check if an IP:port combination is an ONVIF device using zeep and onvif libraries
     """
     try:
-        # If no WSDL directory is provided, try to find it
-        if wsdl_dir is None:
-            wsdl_dir = get_wsdl_dir()
-            
-        if wsdl_dir is None:
-            logger.warning(f"WSDL directory not found for {ip}:{port}")
-            return None
-            
         # Try to create an ONVIF camera instance
         cam = ONVIFCamera(ip, port, username, password, wsdl_dir=wsdl_dir, no_cache=True)
         
@@ -383,7 +284,7 @@ def check_onvif_device_with_zeep(ip, port, username='admin', password='admin', w
                 'location': 'Unknown',
                 'firmware': getattr(device_info, 'FirmwareVersion', 'Unknown'),
                 'serial': getattr(device_info, 'SerialNumber', 'Unknown'),
-                'discovery_method': 'Network Scan'
+                'discovery_method': 'Zeep Direct Connection'
             }
         except Exception as e:
             # If GetDeviceInformation fails, try a simpler request
@@ -399,7 +300,7 @@ def check_onvif_device_with_zeep(ip, port, username='admin', password='admin', w
                     'name': 'Unknown ONVIF Device',
                     'hardware': 'Unknown',
                     'location': 'Unknown',
-                    'discovery_method': 'Network Scan'
+                    'discovery_method': 'Zeep Direct Connection'
                 }
             except:
                 # Not an ONVIF device or authentication failed
@@ -410,26 +311,25 @@ def check_onvif_device_with_zeep(ip, port, username='admin', password='admin', w
         return None
 
 
-def scan_network_for_onvif(subnet, ports, username='admin', password='admin', wsdl_dir=None, max_workers=20, specific_ip=None):
+def scan_network_for_onvif(subnet, ports, username='admin', password='admin', wsdl_dir=None, max_workers=20):
     """Scan a network subnet for ONVIF devices using zeep and onvif libraries"""
     logger.info(f"Starting network scan for ONVIF devices on subnet {subnet}")
     
-    # If specific IP is provided, only scan that IP
-    if specific_ip:
-        ips_to_scan = [specific_ip]
-        logger.info(f"Scanning specific IP: {specific_ip}")
-    else:
-        # Parse subnet
-        network = ipaddress.ip_network(subnet)
-        ips_to_scan = [str(ip) for ip in network.hosts()]
-        logger.info(f"Scanning {len(ips_to_scan)} IP addresses")
+    # Parse subnet
+    network = ipaddress.ip_network(subnet)
     
     # Parse ports
     port_list = [int(p.strip()) for p in ports.split(',')]
-    logger.info(f"Checking ports: {port_list}")
     
     # List to store found devices
     devices = []
+    
+    # Count for progress reporting
+    total_ips = sum(1 for _ in network.hosts())
+    scanned_ips = 0
+    found_devices = 0
+    
+    logger.info(f"Scanning {total_ips} IP addresses on ports {port_list}")
     
     # First, find all IPs with open ports
     open_ports = []
@@ -437,55 +337,47 @@ def scan_network_for_onvif(subnet, ports, username='admin', password='admin', ws
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         # Create tasks for checking each IP and port combination
         futures = []
-        for ip in ips_to_scan:
+        for ip in network.hosts():
+            ip_str = str(ip)
             for port in port_list:
-                future = executor.submit(check_port_open, ip, port)
-                futures.append((future, ip, port))
+                futures.append(executor.submit(check_port_open, ip_str, port))
+                
+                # Store the IP and port for reference
+                open_ports.append((ip_str, port))
         
         # Process results as they complete
-        for i, (future, ip, port) in enumerate(futures):
-            if i % 50 == 0 and len(ips_to_scan) > 10:
-                progress = (i / len(futures)) * 100
-                logger.info(f"Port scan progress: {progress:.1f}% ({i}/{len(futures)})")
-                
-            if future.result():
-                open_ports.append((ip, port))
-                logger.debug(f"Found open port: {ip}:{port}")
+        for i, future in enumerate(concurrent.futures.as_completed(futures)):
+            scanned_ips += 1
+            
+            # Print progress every 50 checks
+            if scanned_ips % 50 == 0:
+                progress = (scanned_ips / (total_ips * len(port_list))) * 100
+                logger.info(f"Scan progress: {progress:.1f}% ({scanned_ips}/{total_ips * len(port_list)})")
     
-    logger.info(f"Found {len(open_ports)} open ports. Checking for ONVIF devices...")
+    # Filter to only the open ports
+    active_hosts = []
+    for i, future in enumerate(futures):
+        if future.result():
+            active_hosts.append(open_ports[i])
+    
+    logger.info(f"Found {len(active_hosts)} open ports. Checking for ONVIF devices...")
     
     # Now check each open port for ONVIF
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         # Create tasks for checking each IP with open port
         futures = []
-        for ip, port in open_ports:
-            # Try with default credentials first
-            futures.append((executor.submit(check_onvif_device_with_zeep, ip, port, username, password, wsdl_dir), ip, port))
-            
-            # Also try with common alternative credentials if not the same as provided
-            if username != 'admin' or password != 'admin':
-                futures.append((executor.submit(check_onvif_device_with_zeep, ip, port, 'admin', 'admin', wsdl_dir), ip, port))
-            
-            # Try with empty password
-            if password != '':
-                futures.append((executor.submit(check_onvif_device_with_zeep, ip, port, username, '', wsdl_dir), ip, port))
+        for ip, port in active_hosts:
+            futures.append(executor.submit(check_onvif_device_with_zeep, ip, port, username, password, wsdl_dir))
         
         # Process results as they complete
-        for future, ip, port in futures:
+        for future in concurrent.futures.as_completed(futures):
             result = future.result()
             if result:
-                # Check if this device is already in our list (by IP)
-                is_new = True
-                for device in devices:
-                    if device['ip'] == result['ip']:
-                        is_new = False
-                        break
-                
-                if is_new:
-                    devices.append(result)
-                    logger.info(f"Found ONVIF device at {result['ip']}:{result['port']}")
+                devices.append(result)
+                found_devices += 1
+                logger.info(f"Found ONVIF device at {result['ip']}:{result['port']}")
     
-    logger.info(f"Network scan completed. Found {len(devices)} ONVIF devices.")
+    logger.info(f"Network scan completed. Found {found_devices} ONVIF devices.")
     return devices
 
 
@@ -521,19 +413,14 @@ def main():
     parser = argparse.ArgumentParser(description='ONVIF Device Discovery Tool')
     parser.add_argument('--timeout', type=int, default=15, help='Discovery timeout in seconds (default: 15)')
     parser.add_argument('--json', action='store_true', help='Output results in JSON format')
-    parser.add_argument('--no-scan', action='store_true', help='Disable network scanning (use only WS-Discovery)')
-    parser.add_argument('--subnet', help='Subnet to scan (default: auto-detect)')
-    parser.add_argument('--ports', default='80,8000,8080,554', help='Comma-separated list of ports to check (default: 80,8000,8080,554)')
+    parser.add_argument('--scan-network', action='store_true', help='Perform a network scan in addition to WS-Discovery')
+    parser.add_argument('--subnet', default='192.168.1.0/24', help='Subnet to scan (default: 192.168.1.0/24)')
+    parser.add_argument('--ports', default='80,8000,8080', help='Comma-separated list of ports to check (default: 80,8000,8080)')
     parser.add_argument('--specific-ip', help='Check a specific IP address (can be used with --ports)')
     parser.add_argument('--user', default='admin', help='Username for authentication (default: admin)')
     parser.add_argument('--password', default='admin', help='Password for authentication (default: admin)')
     parser.add_argument('--wsdl', help='Path to WSDL directory (optional)')
-    parser.add_argument('--debug', action='store_true', help='Enable debug logging')
     args = parser.parse_args()
-    
-    # Set debug logging if requested
-    if args.debug:
-        logger.setLevel(logging.DEBUG)
     
     all_devices = []
     
@@ -554,42 +441,23 @@ def main():
     ws_devices = discovery.get_devices()
     all_devices.extend(ws_devices)
     
-    # If network scanning is not disabled, scan the network
-    if not args.no_scan:
-        # Get WSDL directory
-        wsdl_dir = args.wsdl or get_wsdl_dir()
-        
+    # If requested, also scan the network
+    if args.scan_network:
         if args.specific_ip:
-            # Scan specific IP
+            # Create a /32 subnet for the specific IP
+            subnet = f"{args.specific_ip}/32"
             print(f"Checking specific IP: {args.specific_ip} on ports {args.ports}")
-            network_devices = scan_network_for_onvif(
-                "0.0.0.0/0",  # Dummy subnet, not used
-                args.ports, 
-                username=args.user, 
-                password=args.password, 
-                wsdl_dir=wsdl_dir,
-                specific_ip=args.specific_ip
-            )
         else:
-            # Determine subnet to scan
-            if args.subnet:
-                subnets = [args.subnet]
-            else:
-                subnets = get_local_subnets()
-                print(f"Auto-detected subnets: {', '.join(subnets)}")
-            
-            # Scan each subnet
-            network_devices = []
-            for subnet in subnets:
-                print(f"Scanning subnet {subnet} with ports {args.ports}")
-                devices = scan_network_for_onvif(
-                    subnet, 
-                    args.ports, 
-                    username=args.user, 
-                    password=args.password, 
-                    wsdl_dir=wsdl_dir
-                )
-                network_devices.extend(devices)
+            subnet = args.subnet
+            print(f"Starting network scan on subnet {subnet} with ports {args.ports}")
+        
+        network_devices = scan_network_for_onvif(
+            subnet, 
+            args.ports, 
+            username=args.user, 
+            password=args.password, 
+            wsdl_dir=args.wsdl
+        )
         
         # Add only devices that weren't found by WS-Discovery
         for device in network_devices:
@@ -610,4 +478,4 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main()) 
+    sys.exit(main())

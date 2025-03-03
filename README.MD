@@ -50,3 +50,8 @@ curl -vX POST "http://192.168.11.42/onvif/device_service" -d @sub.xml \
 	</soap-env:Body>
 </soap-env:Envelope>
 ```
+
+
+```
+python onvif_discovery.py --timeout 10
+```
