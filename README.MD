@@ -71,6 +71,27 @@ Establishes direct connections to ONVIF devices for testing and debugging.
 - Verifies authentication
 - Useful for troubleshooting connection issues
 
+#### `dejitter_example.py`
+Command-line tool for managing motion detection dejitter (anti-dithering/去抖动) settings on Dahua cameras.
+- Get current dejitter value via Dahua's proprietary API
+- Set new dejitter value to control motion alarm stability
+- Helps prevent rapid on/off cycling of motion alarms
+- Useful for automating dejitter restoration after camera reboots
+
+Usage:
+```bash
+# Get current dejitter value
+python3 dejitter_example.py 192.168.11.62 admin password --get
+
+# Set dejitter to 5 seconds
+python3 dejitter_example.py 192.168.11.62 admin password --set 5
+
+# Both get and set (shows before/after values)
+python3 dejitter_example.py 192.168.11.62 admin password --get --set 10
+```
+
+Note: This tool uses Dahua's proprietary HTTP API (`/cgi-bin/configManager.cgi`) as the standard ONVIF interface doesn't support modifying these settings on Dahua cameras.
+
 ### Subscription Management
 
 #### `unsub.py`
