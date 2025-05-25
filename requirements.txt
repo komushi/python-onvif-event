@@ -1,0 +1,10 @@
+# ONVIF and SOAP client
+onvif-zeep>=0.2.12
+zeep>=4.2.1
+
+# HTTP library
+requests>=2.31.0
+urllib3==1.26.16
+
+# XML processing
+lxml>=4.9.3

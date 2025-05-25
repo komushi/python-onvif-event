@@ -1,25 +1,121 @@
+# Python ONVIF Event Tools
+
+A collection of Python scripts for working with ONVIF-compliant IP cameras, including device discovery, event notifications, and device management.
+
+## Installation
+
+### Using pip with requirements.txt
+```bash
+pip install -r requirements.txt
 ```
+
+### Manual installation
+```bash
 sudo python3 -m pip install urllib3==1.26.16 --break-system-packages
 sudo python3 -m pip install onvif_zeep --break-system-packages
 ```
 
-```
+### Upgrade existing installation
+```bash
 python3 -m pip install --upgrade onvif_zeep
 ```
 
-```
-python notify_motion.py <server_ip> <server_port> <user> <password> <local_ip>
-python3 notify_motion.py 192.168.135.40 2020 user password 192.168.135.123
+## Script Descriptions
 
+### Device Discovery
+
+#### `onvif_discovery.py`
+Discovers ONVIF-compliant devices on your network using WS-Discovery protocol.
+- Supports both multicast discovery and network scanning
+- Can scan specific subnets and verify ONVIF compliance
+- Outputs device addresses and capabilities
+
+Usage:
+```bash
+python onvif_discovery.py --timeout 10
+```
+
+#### `onvif_discovery_enhanced.py`
+Enhanced version of the discovery tool with additional features for more thorough device detection.
+
+### Event Notifications
+
+#### `notify_motion.py`
+Subscribes to motion detection events from ONVIF cameras and sets up an HTTP server to receive real-time notifications.
+- Creates event subscriptions for motion detection
+- Runs a local HTTP server to receive push notifications
+- Automatically handles subscription cleanup on exit
+
+Usage:
+```bash
+python notify_motion.py <server_ip> <server_port> <user> <password> <local_ip> <local_port>
+python3 notify_motion.py 192.168.135.40 2020 user password 192.168.135.123 7788
+```
+
+#### `pullpoint_msg.py`
+Alternative method for receiving ONVIF events using pull-point subscription mechanism.
+- Uses pull-based event retrieval instead of push notifications
+- Suitable for environments where incoming HTTP connections are not possible
+
+### Device Management
+
+#### `device_mgmt.py`
+Queries and displays device information and capabilities.
+- Gets device model, manufacturer, and firmware version
+- Lists supported ONVIF services
+- Displays device capabilities and profiles
+
+#### `onvif_direct_connect.py`
+Establishes direct connections to ONVIF devices for testing and debugging.
+- Tests ONVIF connectivity
+- Verifies authentication
+- Useful for troubleshooting connection issues
+
+### Subscription Management
+
+#### `unsub.py`
+Unsubscribes from existing event subscriptions.
+- Cleanly terminates event subscriptions
+- Prevents resource leaks on camera devices
+
+Usage:
+```bash
 python unsub.py <server_ip> <server_port> <user> <password> <local_ip>
 python unsub.py 192.168.11.81 80 komushi pa55word 192.168.11.82
 ```
 
-```
+#### `renew.py`
+Renews existing event subscriptions before they expire.
+- Extends subscription duration
+- Maintains continuous event monitoring
+
+#### `sub_post.py`
+Creates event subscriptions using direct HTTP POST requests.
+- Low-level subscription creation
+- Useful for debugging and custom subscription setups
+
+### Authentication and Security
+
+#### `get_token.py`
+Generates WS-Security tokens for ONVIF authentication.
+- Creates properly formatted security tokens
+- Handles password digest generation
+- Includes nonce and timestamp creation
+
+#### `get_token.raw.py`
+Raw implementation of token generation for understanding the authentication process.
+
+## Additional Resources
+
+### Testing with GStreamer
+Test RTSP streams from ONVIF cameras:
+```bash
 gst-launch-1.0 -v rtspsrc location=rtsp://<rtsp-server-url> ! fakesink
 ```
 
-```
+### Manual SOAP Request Example
+Send raw SOAP requests to ONVIF devices:
+```bash
 curl -vX POST "http://192.168.11.42/onvif/device_service" -d @sub.xml \
 --header "Content-Type: application/soap+xml" \
 --header 'SOAPAction: "http://docs.oasis-open.org/wsn/bw-2/NotificationProducer/SubscribeRequest"' \
@@ -27,7 +123,8 @@ curl -vX POST "http://192.168.11.42/onvif/device_service" -d @sub.xml \
 --header 'action: "http://docs.oasis-open.org/wsn/bw-2/NotificationProducer/SubscribeRequest"'
 ```
 
-```sub.xml
+### Example SOAP Subscription Request (sub.xml)
+```xml
 <?xml version='1.0' encoding='utf-8'?>
 <soap-env:Envelope xmlns:soap-env="http://www.w3.org/2003/05/soap-envelope">
 	<soap-env:Header>
@@ -51,7 +148,12 @@ curl -vX POST "http://192.168.11.42/onvif/device_service" -d @sub.xml \
 </soap-env:Envelope>
 ```
 
+## WSDL Files
 
-```
-python onvif_discovery.py --timeout 10
-```
+The `wsdl/` directory contains local copies of ONVIF WSDL files for offline operation, including:
+- Device management
+- Media services
+- PTZ control
+- Event handling
+- Analytics
+- And more...
